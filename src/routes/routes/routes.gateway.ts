@@ -9,7 +9,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Producer } from 'kafkajs';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { RoutesService } from '../routes.service';
 
 @WebSocketGateway()
@@ -22,6 +22,7 @@ export class RoutesGateway
 {
   private kafkaProducer: Producer;
   private logger: Logger = new Logger('RoutesGateway');
+  private clients = [];
 
   @WebSocketServer() server: Server;
 
@@ -39,15 +40,12 @@ export class RoutesGateway
         //credentials: true, // Se você estiver usando autenticação com credenciais, defina como true
       },
     });
-    io.on('connect', (socket: any) => {
-      this.logger.debug('Client connected');
-      socket.on('disconnect', () => {
-        this.logger.debug('Client disconnected');
-      });
+
+    this.server.on('connection', (socket: Socket) => {
+      this.logger.debug('Client connected HERE HANDLE CONNECTION (^_^)');
+      const { id } = socket;
+      this.clients.push(id);
     });
-    if (io) {
-      this.logger.debug('Socket.io connected');
-    }
   }
 
   async afterInit(server: any) {
@@ -61,26 +59,37 @@ export class RoutesGateway
   }
 
   handleDisconnect(client: any) {
-    this.logger.debug('Client disconnected =(');
+    this.logger.debug('Client disconnected HERE HANDLE DISCONNECT =(');    
+    this.clients = [];
   }
 
   handleConnection(client: any, ...args: any[]) {
     this.logger.debug('Client connected HERE HANDLE CONNECTION =)');
-    
   }
 
   @SubscribeMessage('new-direction')
-  handleMessage(client: any, payload: any) {
-    /*this.kafkaProducer.send({
+  handleMessage(client: Socket, payload: { routeId: string }) {
+    this.kafkaProducer.send({
       topic: 'route.new-direction',
-      messages: [{
-        key: 'route.new-direction',
-        value: JSON.stringify({
-          routeId: id,
-          clientId: '',
-        }),
-      }],
-    });*/
-    console.log(payload);
+      messages: [
+        {
+          key: 'route.new-direction',
+          value: JSON.stringify({
+            routeId: payload.routeId,
+            clientId: client.id,
+          }),
+        },
+      ],
+    });
+    console.log(payload.routeId);
+  }
+
+  async sendPosition(data: {
+    routeId: string;
+    clientId: string;
+    position: [number, number];
+    finished: boolean;
+  }) {
+    this.server.emit('new-position', data);
   }
 }

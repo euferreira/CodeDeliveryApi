@@ -15,12 +15,14 @@ import { CreateRouteDto } from './dto/create-route.dto';
 import { UpdateRouteDto } from './dto/update-route.dto';
 import { ClientKafka, MessagePattern, Payload } from '@nestjs/microservices';
 import { Producer } from '@nestjs/microservices/external/kafka.interface';
+import { RoutesGateway } from './routes/routes.gateway';
 
 @Controller('routes')
 export class RoutesController implements OnModuleInit {
   constructor(
     private readonly routesService: RoutesService,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
+    private routesGateway: RoutesGateway,
   ) {}
 
   private kafkaProducer: Producer;
@@ -79,15 +81,17 @@ export class RoutesController implements OnModuleInit {
   consumeNewPosition(
     @Payload()
     message: {
-      value: {
-        routeId: string;
-        clientId: string;
-        position: [number, number];
-        finished: boolean;
-      };
+      routeId: string,
+      clientId: string,
+      position: [number, number],
+      finished: boolean,
     },
   ) {
-    this.logger.debug('New position received (⁰⊖⁰)');
-    this.logger.debug(message.value);
+    this.routesGateway.sendPosition(message);
   }
 }
+function WebSocketServer() {
+  throw new Error('Function not implemented.');
+}
+
+//{"routeId":"1","clientId":"T-COH4N_PmuyVayzAAAH","position":[-15.82998,-47.9249],"finished":false}
